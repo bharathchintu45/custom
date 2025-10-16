@@ -120,7 +120,7 @@ class CFP_Core {
 
     private function is_feature_visible() {
         if ( ! is_product() ) return false;
-        
+
         $product_to_check = wc_get_product( get_the_ID() );
         if ( ! $product_to_check ) return false;
 
@@ -145,18 +145,18 @@ class CFP_Core {
 
     public function enqueue_assets() {
         if ( ! is_product() || ! $this->is_feature_visible() ) return;
-        
+
         $s = $this->get_settings();
         $ver = '3.5.4'; // Version bump for cache busting
 
         wp_register_style( 'cfp-inline', false, [], $ver );
-        
+
         $css = '
         /* Styles for the inline container */
         #csvp-inline-fields-container{display:none; border:1px solid #dfe3e8; border-radius:12px; padding:20px; margin:20px 0; background:#fdfdfd;}
         #csvp-inline-fields-container h3{margin:0 0 8px;font-size:20px;letter-spacing:.2px}
         #csvp-inline-fields-container .csvp-note{font-size:13px;color:#4b5563;margin:0 0 16px}
-        
+
         /* Re-usable styles from the old modal */
         .csvp-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px}
         .csvp-field{margin-bottom:0}
@@ -171,7 +171,7 @@ class CFP_Core {
         .csvp-btn{background:#2563eb;color:#fff;border:none;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;transition:all .15s ease}
         .csvp-btn:hover{background:#1d4ed8;transform:translateY(-1px)}
         #csvp_error{display:none;color:#dc2626;margin-top:12px;font-size:13px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px}
-        
+
         /* Trigger zone elements */
         .csvp-trigger-zone{margin:12px 0 16px;}
         .csvp-badge{display:none;align-items:center;gap:8px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:8px 12px;border-radius:20px;font-size:13px;transition:all .15s ease; width: fit-content; margin-top: 10px;}
@@ -229,7 +229,7 @@ class CFP_Core {
                 t=(t||'').toString().toLowerCase().trim();
                 return v===customLabel||t.indexOf(customLabel)!==-1||v==='custom'||t.indexOf('custom')!==-1;
             }
-            
+
             function isCustomSelected(){
                 let f=false;
                 const form=$('form.variations_form, form.cart');
@@ -286,7 +286,7 @@ class CFP_Core {
                 summary.hide().empty();
                 if (showStatus) badge.hide();
             }
-            
+
             function checkVariationSelection() {
                 if (isCustomSelected()){
                     showFields();
@@ -299,7 +299,7 @@ class CFP_Core {
                     clearInlineSummary();
                 }
             }
-            
+
             $('.variations_form').on('show_variation found_variation', function() {
                 checkVariationSelection();
             }).on('hide_variation', function() {
@@ -310,7 +310,7 @@ class CFP_Core {
             $(document).on('change', '.variations_form select[name^="attribute_"], .variations_form input[name^="attribute_"]', checkVariationSelection);
 
             $(document).on('submit','form.cart',function(e){
-                if (isCustomSelected() && (hidden.val()==='' || hidden.val()===null)) { 
+                if (isCustomSelected() && (hidden.val()==='' || hidden.val()===null)) {
                     e.preventDefault();
                     e.stopImmediatePropagation();
                     showFields();
@@ -318,28 +318,22 @@ class CFP_Core {
                         scrollTop: fieldsContainer.offset().top - 100
                     }, 500);
                     alert('Please save your custom measurements before adding to cart.');
-                    return false; 
+                    return false;
                 }
             });
 
-            /*******************************************************
-             * !! BUG FIX: Robust Type Parsing !!
-             * This function now correctly handles string/null values from PHP
-             * by using !isNaN() to ensure a value is a valid number before comparing.
-             *******************************************************/
-            function inRange(k, f){
+            function inRange(k, f) {
                 const m = minmax[k];
-                
                 if (isNaN(f) || f <= 0) return false;
-                if (!m) return true;
+                if (!m) return true; // No limits defined for this field.
 
-                // This is the corrected logic
-                const mn = (!isNaN(parseFloat(m.min))) ? parseFloat(m.min) : null;
-                const mx = (!isNaN(parseFloat(m.max))) ? parseFloat(m.max) : null;
-                
-                if (mn !== null && f < mn) return false;
-                if (mx !== null && f > mx) return false;
-                
+                // Directly parse min and max. They can be null or numeric strings from PHP.
+                const min = m.min !== null ? parseFloat(m.min) : null;
+                const max = m.max !== null ? parseFloat(m.max) : null;
+
+                if (min !== null && !isNaN(min) && f < min) return false;
+                if (max !== null && !isNaN(max) && f > max) return false;
+
                 return true;
             }
 
@@ -350,21 +344,21 @@ class CFP_Core {
                 for (let k of fieldKeys){
                     const val = $('#csvp_'+k).val();
                     const f = parseFloat(val);
-                    if (!val || !inRange(k,f)){ 
-                        ok=false; 
-                        $('#csvp_'+k).css({'border':'1px solid #dc2626','background':'#fef2f2'}); 
-                    } else { 
-                        $('#csvp_'+k).css({'border':'1px solid #dfe3e8','background':'#fff'}); 
-                        data.measurements[k]={value:f.toString(),unit:currentUnit}; 
+                    if (!val || !inRange(k,f)){
+                        ok=false;
+                        $('#csvp_'+k).css({'border':'1px solid #dc2626','background':'#fef2f2'});
+                    } else {
+                        $('#csvp_'+k).css({'border':'1px solid #dfe3e8','background':'#fff'});
+                        data.measurements[k]={value:f.toString(),unit:currentUnit};
                     }
                 }
                 if (!ok){ $('#csvp_error').text(validationMsg).show(); return; }
-                
+
                 $('#csvp_error').hide();
                 hidden.val(JSON.stringify(data));
                 hideFields();
                 renderInlineSummary(data);
-                
+
                 $('.csvp-success-message').remove();
                 $('<div class="csvp-success-message">✓ Measurements saved! You can now add the product to cart.</div>')
                     .insertBefore('.csvp-trigger-zone')
@@ -382,7 +376,7 @@ JS;
 
     public function print_trigger_zone() {
         if ( ! $this->is_feature_visible() ) return;
-        
+
         $s = $this->get_settings();
         ?>
         <div class="csvp-trigger-zone">
@@ -420,7 +414,7 @@ JS;
                 <button id="csvp_save_btn" class="csvp-btn" type="button">Save Measurements</button>
             </div>
         </div>
-        
+
         <input type="hidden" name="<?php echo esc_attr($this->meta_key); ?>" id="<?php echo esc_attr($this->meta_key); ?>_input" value="">
         <?php
     }
@@ -432,9 +426,9 @@ JS;
         foreach ( $_REQUEST as $k => $v ) {
             if ( strpos($k, 'attribute_') === 0 && is_string($v) ) {
                 $vv = strtolower($v);
-                if ( $vv === $s['custom_label_text'] || stripos($vv, $s['custom_label_text']) !== false || $vv === 'custom' ) { 
-                    $is_custom = true; 
-                    break; 
+                if ( $vv === $s['custom_label_text'] || stripos($vv, $s['custom_label_text']) !== false || $vv === 'custom' ) {
+                    $is_custom = true;
+                    break;
                 }
             }
         }
@@ -469,7 +463,7 @@ JS;
 
     public function display_cart_item_data( $item_data, $cart_item ) {
         if ( ! isset($cart_item[ $this->meta_key ]['measurements']) ) return $item_data;
-        
+
         $product_id = $cart_item['product_id'];
         $s = $this->get_settings( $product_id );
 
@@ -501,11 +495,11 @@ JS;
         }
         return $name.'<div class="csvp-measurements" style="font-size:13px;color:#555;margin-top:6px;">'.implode('<br>',$parts).'</div>';
     }
-    
+
     public function save_order_item_meta( $item, $cart_item_key, $values, $order ) {
         if ( ! isset($values[ $this->meta_key ]) ) return;
         if ( ! is_a( $item, 'WC_Order_Item' ) ) return;
-        
+
         $product_id = $item->get_product_id();
         $s = $this->get_settings( $product_id );
         $required_unit = $s['required_order_unit'];
@@ -532,15 +526,15 @@ JS;
     public function save_user_meta_from_order( $order_id, $posted_data, $order ) {
         if ( ! is_a( $order, 'WC_Order' ) ) {
             $order = wc_get_order( $order_id );
-            if ( ! $order ) return; 
+            if ( ! $order ) return;
         }
 
         $uid = $order->get_user_id();
         if ( ! $uid ) return;
-        
+
         foreach ( $order->get_items() as $item ) {
             if ( ! is_a( $item, 'WC_Order_Item_Product' ) ) continue;
-            
+
             $summary = $item->get_meta('_csvp_measurements_summary', true);
             if ( $summary ) {
                 $s = $this->get_settings( $item->get_product_id() );
@@ -582,10 +576,10 @@ class CFP_Admin {
         add_submenu_page('woocommerce','Custom Fit','Custom Fit','manage_options',$this->menu_slug,[$this,'render_page']);
     }
 
-    public function register_settings(){ 
-        register_setting('csvp_settings_group', $this->option_key, [$this, 'sanitize_settings']); 
+    public function register_settings(){
+        register_setting('csvp_settings_group', $this->option_key, [$this, 'sanitize_settings']);
     }
-    
+
     public function sanitize_settings($input) {
         $new_input = [];
         if (empty($input) || !is_array($input)) {
@@ -644,7 +638,7 @@ class CFP_Admin {
                     $('#csvp-products-section').show();
                 }
             }).trigger('change');
-            
+
             const updateRowIndexes = function() {
                 $('#csvp-master-fields-tbody tr').each(function(index) {
                     $(this).find('input').each(function() {
@@ -687,12 +681,12 @@ class CFP_Admin {
                 const isChecked = $(this).is(':checked');
                 $(this).closest('tr').find('.csvp-limit-input').prop('disabled', !isChecked);
             });
-            
+
             $('.csvp-enable-field').trigger('change');
         });";
         wp_add_inline_script( 'jquery-core', $inline_js );
     }
-    
+
     public function add_product_meta_box() {
         $s = get_option($this->option_key, []);
         if ( ($s['enable_product_specific_fields'] ?? '') === 'yes' ) {
@@ -792,7 +786,7 @@ class CFP_Admin {
         if ( ! isset( $_POST['csvp_product_meta_nonce'] ) || ! wp_verify_nonce( $_POST['csvp_product_meta_nonce'], 'csvp_save_product_data' ) ) return;
         if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
         if ( ! current_user_can( 'edit_product', $post_id ) ) return;
-        
+
         $enabled_fields = isset($_POST['_csvp_enabled_fields']) && is_array($_POST['_csvp_enabled_fields']) ? array_map('sanitize_key', $_POST['_csvp_enabled_fields']) : [];
         $limits = isset($_POST['_csvp_limits']) && is_array($_POST['_csvp_limits']) ? $_POST['_csvp_limits'] : [];
 
@@ -833,12 +827,12 @@ class CFP_Admin {
                 .csvp-sort-handle { cursor: move; vertical-align: middle; margin-right: 10px; color: #888; }
             </style>
             <form method="post" action="options.php">
-                <?php 
+                <?php
                 settings_fields('csvp_settings_group');
                 submit_button();
                 ?>
                 <table class="form-table" role="presentation">
-                    
+
                     <tr><th colspan="2"><h2>Global Configuration</h2></th></tr>
                     <tr>
                         <th>Enable Product-Specific Overrides</th>
@@ -849,7 +843,7 @@ class CFP_Admin {
                             </label>
                         </td>
                     </tr>
-                    
+
                     <tr><th colspan="2"><h2>Master Measurement Fields</h2><p class="description">Define all possible measurement fields available for your store here. You will select from this list on each product page.</p></th></tr>
                     <tr>
                         <td colspan="2">
@@ -876,7 +870,7 @@ class CFP_Admin {
                             <p style="margin-top:10px;"><button type="button" class="button" id="csvp_add_master_field">Add Field</button></p>
                         </td>
                     </tr>
-                    
+
                     <tr><th colspan="2"><h2>Global Default Fields (Fallback)</h2><p class="description">These fields will be used if a product does not have its own specific configuration. These are legacy settings and it is recommended to configure fields per-product.</p></th></tr>
                     <tr>
                         <th>Fields JSON</th>
@@ -910,7 +904,7 @@ class CFP_Admin {
                         <td>
                             <div id="csvp-categories-section" class="csvp-selection-list" style="display:none;">
                                 <select id="csvp_categories_select" name="<?php echo esc_attr($this->option_key); ?>[selected_categories][]" multiple="multiple" style="width: 100%; max-width: 500px;">
-                                    <?php 
+                                    <?php
                                     $selected_categories = $s['selected_categories'] ?? [];
                                     if ( !empty( $categories ) && ! is_wp_error( $categories ) ):
                                         foreach ( $categories as $category ) : ?>
