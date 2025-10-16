@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Custom Fit Polished (Inline Fields)
  * Description: Custom-size measurements with an inline form instead of a modal, plus a context-aware system for global and product-specific fields.
- * Version: 3.5.5
+ * Version: 3.5.6
  * Author: Gemini Pro
  * License: GPL2+
  */
@@ -75,6 +75,7 @@ class CFP_Core {
         }
 
         $fields_to_use = [];
+        // NOTE: Min/Max is now removed, but we keep the array for compatibility.
         $minmax_to_use = [];
 
         if ( $settings['enable_product_specific_fields'] === 'yes' && $product_id ) {
@@ -83,10 +84,6 @@ class CFP_Core {
                 foreach($product_config as $key => $config) {
                     if (isset($master_fields_assoc[$key])) {
                         $fields_to_use[$key] = $master_fields_assoc[$key];
-                        $minmax_to_use[$key] = [
-                            'min' => $config['min'] ?? null,
-                            'max' => $config['max'] ?? null
-                        ];
                     }
                 }
             }
@@ -95,11 +92,9 @@ class CFP_Core {
         if ( empty($fields_to_use) ) {
             $global_defaults = $this->json_to_array( $opt['fields'] ?? '' );
             if (!empty($global_defaults) && is_array($global_defaults)) {
-                $global_minmax = $this->json_to_array( $opt['fields_min_max'] ?? '' );
                 foreach($global_defaults as $key => $label) {
                     if (isset($master_fields_assoc[$key])) {
                         $fields_to_use[$key] = $label;
-                        $minmax_to_use[$key] = $global_minmax[$key] ?? null;
                     }
                 }
             } else {
@@ -147,7 +142,7 @@ class CFP_Core {
         if ( ! is_product() || ! $this->is_feature_visible() ) return;
 
         $s = $this->get_settings();
-        $ver = '3.5.5'; // Version bump for cache busting
+        $ver = '3.5.6'; // Version bump for cache busting
 
         wp_register_style( 'cfp-inline', false, [], $ver );
 
@@ -196,7 +191,7 @@ class CFP_Core {
         $cfg = [
             'fieldKeys'         => is_array($s['fields']) ? array_keys($s['fields']) : [],
             'fieldLabels'       => $s['fields'],
-            'minmax'            => $s['fields_min_max'],
+            'minmax'            => [], // Min/Max feature removed
             'customLabel'       => $s['custom_label_text'],
             'defaultUnit'       => $s['unit'],
             'attributeSlug'     => $s['attribute_slug'],
@@ -216,7 +211,6 @@ class CFP_Core {
 
             const fieldKeys = cfg.fieldKeys||[];
             const labels = cfg.fieldLabels||{};
-            const minmax = cfg.minmax||{};
             const customLabel = (cfg.customLabel||'custom').toLowerCase();
             const defaultUnit = cfg.defaultUnit||'cm';
             const attrSlug = cfg.attributeSlug||'pa_size';
@@ -322,17 +316,9 @@ class CFP_Core {
                 }
             });
 
+            // Min/Max validation has been removed. Any positive number is now valid.
             function inRange(k, f) {
-                const m = minmax[k];
                 if (isNaN(f) || f <= 0) return false;
-                if (!m) return true;
-
-                const min = m.min !== null ? parseFloat(m.min) : null;
-                const max = m.max !== null ? parseFloat(m.max) : null;
-
-                if (min !== null && !isNaN(min) && f < min) return false;
-                if (max !== null && !isNaN(max) && f > max) return false;
-
                 return true;
             }
 
@@ -385,7 +371,7 @@ JS;
 
         <div id="csvp-inline-fields-container">
             <h3>Enter Custom Measurements</h3>
-            <p class="csvp-note">Please enter your measurements for a perfect fit. Values must be positive and within allowed range.</p>
+            <p class="csvp-note">Please enter your measurements for a perfect fit. Values must be positive.</p>
 
             <?php if ( $s['instructional_image_url'] ) : ?>
                 <div style="margin:6px 0 16px">
@@ -709,21 +695,18 @@ class CFP_Admin {
         }
         ?>
         <p class="description">
-            Enable the required measurements for THIS product. These settings will <strong>override</strong> the global defaults. Leave all fields unchecked to use global settings.
+            Enable the required measurements for THIS product. These settings will <strong>override</strong> the global defaults.
         </p>
         <style>
             #csvp_product_fields_config { border-collapse: collapse; width: 100%; }
             #csvp_product_fields_config th, #csvp_product_fields_config td { text-align: left; padding: 8px 10px; border: 1px solid #ddd; }
             #csvp_product_fields_config th { background-color: #f9f9f9; }
-            #csvp_product_fields_config input[type="number"] { width: 100px; }
         </style>
         <table id="csvp_product_fields_config">
             <thead>
                 <tr>
                     <th>Enable</th>
                     <th>Measurement Field</th>
-                    <th>Min Value</th>
-                    <th>Max Value</th>
                 </tr>
             </thead>
             <tbody>
@@ -732,11 +715,9 @@ class CFP_Admin {
                         $key = sanitize_key($field['key']);
                         $label = esc_html($field['label']);
                         $is_enabled = isset($product_config[$key]);
-                        $min_val = $is_enabled ? ($product_config[$key]['min'] ?? '') : '';
-                        $max_val = $is_enabled ? ($product_config[$key]['max'] ?? '') : '';
                     ?>
                     <tr>
-                        <td>
+                        <td style="width: 60px;">
                             <input
                                 class="csvp-enable-field"
                                 type="checkbox"
@@ -748,32 +729,10 @@ class CFP_Admin {
                         <td>
                             <label><?php echo $label; ?> (<code><?php echo $key; ?></code>)</label>
                         </td>
-                        <td>
-                            <input
-                                type="number"
-                                class="short csvp-limit-input"
-                                name="_csvp_limits[<?php echo esc_attr($key); ?>][min]"
-                                value="<?php echo esc_attr($min_val); ?>"
-                                step="any"
-                                placeholder="e.g. 50"
-                                <?php disabled(!$is_enabled); ?>
-                            />
-                        </td>
-                        <td>
-                            <input
-                                type="number"
-                                class="short csvp-limit-input"
-                                name="_csvp_limits[<?php echo esc_attr($key); ?>][max]"
-                                value="<?php echo esc_attr($max_val); ?>"
-                                step="any"
-                                placeholder="e.g. 80"
-                                <?php disabled(!$is_enabled); ?>
-                            />
-                        </td>
                     </tr>
                 <?php endforeach; else: ?>
                     <tr>
-                        <td colspan="4">No global fields defined. Please configure them in the <a href="<?php echo esc_url(admin_url('admin.php?page='.$this->menu_slug)); ?>">Custom Fit settings page</a>.</td>
+                        <td colspan="2">No global fields defined. Please configure them in the <a href="<?php echo esc_url(admin_url('admin.php?page='.$this->menu_slug)); ?>">Custom Fit settings page</a>.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
@@ -787,31 +746,12 @@ class CFP_Admin {
         if ( ! current_user_can( 'edit_product', $post_id ) ) return;
 
         $enabled_fields = isset($_POST['_csvp_enabled_fields']) && is_array($_POST['_csvp_enabled_fields']) ? array_map('sanitize_key', $_POST['_csvp_enabled_fields']) : [];
-        $limits = isset($_POST['_csvp_limits']) && is_array($_POST['_csvp_limits']) ? $_POST['_csvp_limits'] : [];
         $new_config = [];
 
         if ( !empty($enabled_fields) ) {
             foreach($enabled_fields as $key) {
-                $min_val = $limits[$key]['min'] ?? null;
-                $max_val = $limits[$key]['max'] ?? null;
-
-                $min = null;
-                if ( $min_val !== null && $min_val !== '' ) {
-                    $validated_min = filter_var($min_val, FILTER_VALIDATE_FLOAT);
-                    if ( $validated_min !== false ) {
-                        $min = $validated_min;
-                    }
-                }
-
-                $max = null;
-                if ( $max_val !== null && $max_val !== '' ) {
-                    $validated_max = filter_var($max_val, FILTER_VALIDATE_FLOAT);
-                    if ( $validated_max !== false ) {
-                        $max = $validated_max;
-                    }
-                }
-
-                $new_config[$key] = ['min' => $min, 'max' => $max];
+                // Min/Max feature removed. We just mark the field as enabled.
+                $new_config[$key] = ['enabled' => true];
             }
         }
 
@@ -891,10 +831,10 @@ class CFP_Admin {
                             <p class="description">Format: {"field_key":"Field Label"}. Keys must match a key from the Master Fields list above.</p>
                         </td>
                     </tr>
-                    <tr>
+                    <tr style="display: none;">
                         <th>Field Min/Max JSON</th>
                         <td>
-                            <textarea name="<?php echo esc_attr($this->option_key); ?>[fields_min_max]" rows="5" cols="80" style="font-family:monospace"><?php echo esc_textarea($s['fields_min_max']??'{"chest":{"min":60,"max":150}}'); ?></textarea>
+                            <textarea name="<?php echo esc_attr($this->option_key); ?>[fields_min_max]" rows="5" cols="80" style="font-family:monospace"><?php echo esc_textarea($s['fields_min_max']??''); ?></textarea>
                                 <p class="description">Format: {"field_key":{"min":10, "max":100}}</p>
                         </td>
                     </tr>
