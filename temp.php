@@ -331,7 +331,7 @@ class CFP_Core {
                 const m = minmax[k];
 
                 if (isNaN(f) || f <= 0) return false;
-                if (!m) return true;
+                if (!m || (m.min === null && m.max === null)) return true;
 
                 const mn = (m.min !== null && !isNaN(parseFloat(m.min))) ? parseFloat(m.min) : null;
                 const mx = (m.max !== null && !isNaN(parseFloat(m.max))) ? parseFloat(m.max) : null;
