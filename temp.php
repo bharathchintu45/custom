@@ -325,14 +325,10 @@ class CFP_Core {
             function inRange(k, f) {
                 const m = minmax[k];
                 if (isNaN(f) || f <= 0) return false;
-                if (!m) return true; // No limits defined for this field.
+                if (!m) return true;
 
-                // Directly parse min and max. They can be null or numeric strings from PHP.
-                const min = m.min !== null ? parseFloat(m.min) : null;
-                const max = m.max !== null ? parseFloat(m.max) : null;
-
-                if (min !== null && !isNaN(min) && f < min) return false;
-                if (max !== null && !isNaN(max) && f > max) return false;
+                if (m.min !== null && f < m.min) return false;
+                if (m.max !== null && f > m.max) return false;
 
                 return true;
             }
@@ -789,17 +785,30 @@ class CFP_Admin {
 
         $enabled_fields = isset($_POST['_csvp_enabled_fields']) && is_array($_POST['_csvp_enabled_fields']) ? array_map('sanitize_key', $_POST['_csvp_enabled_fields']) : [];
         $limits = isset($_POST['_csvp_limits']) && is_array($_POST['_csvp_limits']) ? $_POST['_csvp_limits'] : [];
-
         $new_config = [];
 
         if ( !empty($enabled_fields) ) {
             foreach($enabled_fields as $key) {
-                $min = isset($limits[$key]['min']) ? sanitize_text_field($limits[$key]['min']) : '';
-                $max = isset($limits[$key]['max']) ? sanitize_text_field($limits[$key]['max']) : '';
-                $new_config[$key] = [
-                    'min' => ($min !== '') ? (float)$min : null,
-                    'max' => ($max !== '') ? (float)$max : null,
-                ];
+                $min_val = $limits[$key]['min'] ?? null;
+                $max_val = $limits[$key]['max'] ?? null;
+
+                $min = null;
+                if ( $min_val !== null && $min_val !== '' ) {
+                    $validated_min = filter_var($min_val, FILTER_VALIDATE_FLOAT);
+                    if ( $validated_min !== false ) {
+                        $min = $validated_min;
+                    }
+                }
+
+                $max = null;
+                if ( $max_val !== null && $max_val !== '' ) {
+                    $validated_max = filter_var($max_val, FILTER_VALIDATE_FLOAT);
+                    if ( $validated_max !== false ) {
+                        $max = $validated_max;
+                    }
+                }
+
+                $new_config[$key] = ['min' => $min, 'max' => $max];
             }
         }
 
