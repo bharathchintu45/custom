@@ -333,9 +333,8 @@ class CFP_Core {
                 if (isNaN(f) || f <= 0) return false;
                 if (!m) return true;
 
-                // This is the corrected logic
-                const mn = (!isNaN(parseFloat(m.min))) ? parseFloat(m.min) : null;
-                const mx = (!isNaN(parseFloat(m.max))) ? parseFloat(m.max) : null;
+                const mn = (m.min !== null && !isNaN(parseFloat(m.min))) ? parseFloat(m.min) : null;
+                const mx = (m.max !== null && !isNaN(parseFloat(m.max))) ? parseFloat(m.max) : null;
 
                 if (mn !== null && f < mn) return false;
                 if (mx !== null && f > mx) return false;
