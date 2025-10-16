@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Custom Fit Polished (Inline Fields)
  * Description: Custom-size measurements with an inline form instead of a modal, plus a context-aware system for global and product-specific fields.
- * Version: 3.5.4
+ * Version: 3.5.5
  * Author: Gemini Pro
  * License: GPL2+
  */
@@ -147,7 +147,7 @@ class CFP_Core {
         if ( ! is_product() || ! $this->is_feature_visible() ) return;
 
         $s = $this->get_settings();
-        $ver = '3.5.4'; // Version bump for cache busting
+        $ver = '3.5.5'; // Version bump for cache busting
 
         wp_register_style( 'cfp-inline', false, [], $ver );
 
@@ -327,8 +327,11 @@ class CFP_Core {
                 if (isNaN(f) || f <= 0) return false;
                 if (!m) return true;
 
-                if (m.min !== null && f < m.min) return false;
-                if (m.max !== null && f > m.max) return false;
+                const min = m.min !== null ? parseFloat(m.min) : null;
+                const max = m.max !== null ? parseFloat(m.max) : null;
+
+                if (min !== null && !isNaN(min) && f < min) return false;
+                if (max !== null && !isNaN(max) && f > max) return false;
 
                 return true;
             }
